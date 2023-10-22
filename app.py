@@ -69,18 +69,17 @@ def file_input():
             df = df[['body', 'timestamp']]
 
             print("File uploaded successfully.")
-            return redirect('/analysis')
+            return redirect("/analysis")
         except:
             flash("Error occurred while processing the request.")
             return jsonify(message="Error occurred while processing the request."), 400
 
-    return render_template("index.html/#visualization")
+    return render_template("index.html")
 
 @app.route("/analysis")
 def analysis():
     match_data = match_stats()
-    match_data = json.loads(match_data[0].data)
-    return render_template("index.html/#visualization", match_data = match_data)
+    return match_data[0].data
 
 # Basic statistics for matches
 def match_stats():
@@ -103,9 +102,6 @@ def match_stats():
     except Exception as e:
         print(e)
         return jsonify(message="Error occurred while processing the request."), 400
-    
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)
