@@ -20,25 +20,83 @@ window.addEventListener("DOMContentLoaded", (event) => {
       .then((response) => response.json()) // parse the response as JSON
       .then((data) => {
         console.log(data); // log the response data to the console
-        // generate the pie chart
+
+        // TODO: Game Time Stats
         const likes_given = data["likes_given_of_matches"];
         const likes_received = data["likes_received_of_matches"];
+        const num_matches = data["num_matches"];
+        const pick_rate = (likes_given / num_matches * 100).toFixed(2);
+        
+        const overview = document.getElementById("overview");
+        const overview_sentences = `Over the past year, you talked to ${num_matches} people. 
+              Out of those, you chose ${pick_rate}%. You liked [number of likes 
+                that didn’t match] many people that didn’t like you back.`
+        overview.textContent = overview_sentences;
+
+        // generate pie chart
         const dataArray = [likes_given, likes_received];
         generatePieChart(dataArray);
 
-        // create a sentence with the response data
-        const num_matches = data["num_matches"];
-        const pick_rate = (likes_given / num_matches * 100).toFixed(2);
-        const sentence = `Out of ${num_matches} potential suitors, you picked ${pick_rate}%`;
+        // TODO: Chatting Stats
+        // show number of messages sent
+        const num_messages = data['total_messages_sent'];
+        const weekday = data['most_freq_weekday'];
+        const hours = data['most_freq_hour'];
+        
+        // Extract timestamps and values from the data
+        timeSeriesData = JSON.parse(data['monthly_message_lengths']);
+        const timestamps = timeSeriesData.map(entry => new Date(entry.Timestamp).toLocaleDateString('default', { month: 'long' }));
+        const values = timeSeriesData.map(entry => entry.BodyLength);
 
-        // display the number of picks from matches
-        const numMatchesParagraph = document.getElementById("num_matches");
-        numMatchesParagraph.textContent = sentence;
+        // generate the line chart
+        const ctx = document.getElementById('messagefreq').getContext('2d');
+        generateMessageLengthChart(ctx, timestamps, values);
+
+        // Find the entry with the highest body length
+        const entryWithHighestBodyLength = timeSeriesData.reduce((prev, current) => {
+          return (prev.BodyLength > current.BodyLength) ? prev : current;
+        });
+        // Get the month of the timestamp with the highest body length
+        const monthOfHighestBodyLength = new Date(entryWithHighestBodyLength.Timestamp).toLocaleString('default', { month: 'long' });
+
+        const chatstats = document.getElementById("chat_stats");
+        chatstats.textContent = `You sent ${num_messages} messages, and were most 
+        active in the month of ${monthOfHighestBodyLength}. You chatted the most on ${weekday}s, and 
+        sent the longest messages at ${hours}.
+        Here were your most used words: `
+        
+        // top 10 words
+        const top_words = data['top5_words'];
+        
+        // Parse the string into an array
+        const wordsArray = JSON.parse(top_words.replace(/'/g, '"'));
+
+        // Get the paragraph element
+        const topWordsParagraph = document.getElementById('topwords');
+
+        // Generate a numbered list of words and set it as the content of the paragraph
+        const wordsList = wordsArray.map((word, index) => `${index + 1}. ${word}`).join("<br>");
+        topWordsParagraph.innerHTML = wordsList;
+
+        // TODO: Expletives
+        const profanities = data['profanities'];
+        const expletives = document.getElementById('expletives');
+
+        // Generate a numbered list of words and set it as the content of the paragraph
+        const profanitiesList = profanities.map((word, index) => `${index + 1}. ${word}`).join("<br>");
+        expletives.innerHTML = profanitiesList;
+
+        
+        // TODO: Emotional Analysis
+        // create emotions barchart
+        const emotions = data['emotion_spectrum'];
+        const emotionsCTX = document.getElementById('emotions').getContext('2d');
+        generateEmotionsChart(emotionsCTX, emotions);
 
         // display the visualization section
         const visualizationSection = document.getElementById("visualization");
         visualizationSection.style.display = "block";
-
+        
         // delay the scrolling until the visualization section is fully displayed
         setTimeout(() => {
           window.scrollTo({
@@ -50,7 +108,6 @@ window.addEventListener("DOMContentLoaded", (event) => {
       })
       .catch((error) => {
         console.error(error); // log any errors to the console
-        // handle the error
       });
   });
 
@@ -90,6 +147,91 @@ window.addEventListener("DOMContentLoaded", (event) => {
       document.getElementById('myChart'),
       config
     );
+  }
+
+  function generateMessageLengthChart(ctx, timestamps, values) {
+    // Create the line chart
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: timestamps,
+        datasets: [{
+          label: 'Messages per Month',
+          data: values,
+          borderColor: 'blue',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'day',
+              displayFormats: {
+                day: 'MMM D'
+              }
+            }
+          },
+          y: {
+            beginAtZero: true
+          },
+          xAxes: [{
+            gridLines: {
+              display: false,
+            },
+          }],
+          yAxes: [{
+            gridLines: {
+              display: false,
+            },
+          }]
+        }
+      }
+    });
+  }
+
+
+  function generateEmotionsChart(ctx, data) {
+    const dataArray = Object.entries(data)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value]) => ({ label, value }));
+
+    const labels = dataArray.map(item => item.label);
+    const values = dataArray.map(item => item.value);
+
+    const config = {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Emotions',
+          data: values,
+          backgroundColor: 'rgb(54, 162, 235)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        scales: {
+          y: {
+            beginAtZero: true
+          },
+          yAxes: [{
+            gridLines: {
+              display: false,
+            },
+          }],
+          xAxes: [{
+            gridLines: {
+              display: false,
+            },
+          }],
+        }
+      }
+    };
+
+    new Chart(ctx, config);
   }
 
   // Navbar shrink function
